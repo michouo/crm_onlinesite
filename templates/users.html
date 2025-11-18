@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 class="mb-4">員工管理</h2>
+
+<a href="/users/add" class="btn btn-success mb-3">➕ 新增員工</a>
+
+<table class="table table-bordered table-hover bg-white">
+    <thead class="table-dark">
+        <tr>
+            <th>ID</th>
+            <th>帳號</th>
+            <th>員工編號</th>
+            <th>角色</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+
+    <tbody>
+    {% for u in users %}
+        <tr>
+            <td>{{ u.id }}</td>
+            <td>{{ u.username }}</td>
+            <td>{{ u.employee_id }}</td>
+            <td>{{ u.role }}</td>
+            <td>
+                <a href="/users/edit/{{ u.id }}" class="btn btn-sm btn-primary">編輯</a>
+                <a href="/users/delete/{{ u.id }}" class="btn btn-sm btn-danger"
+                   onclick="return confirm('確定刪除？')">刪除</a>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}

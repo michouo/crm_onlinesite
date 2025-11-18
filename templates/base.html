@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title if title else "CRM 系統" }}</title>
+
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+</head>
+<body class="bg-light">
+
+<!-- 導覽列 -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/list">🏠 CRM 系統</a>
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarNav">
+
+            <ul class="navbar-nav me-auto">
+
+                <li class="nav-item">
+                    <a class="nav-link" href="/list">客戶列表</a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="/add">新增客戶</a>
+                </li>
+
+                {% if session.role == 'admin' %}
+                <li class="nav-item">
+                    <a class="nav-link" href="/users">員工管理</a>
+                </li>
+                {% endif %}
+
+            </ul>
+
+            <span class="navbar-text text-white me-3">
+                👤 {{ session.username }}
+            </span>
+
+            <a href="/logout" class="btn btn-outline-light btn-sm">登出</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container py-4">
+    {% block content %}{% endblock %}
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 class="mb-4">編輯客戶</h2>
+
+<form method="POST" class="bg-white p-4 rounded shadow-sm">
+
+    <div class="mb-3">
+        <label class="form-label">姓名</label>
+        <input type="text" name="name" value="{{ client.name }}" class="form-control" required>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">房屋地址</label>
+        <input type="text" name="house_address" value="{{ client.house_address }}" class="form-control" required>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">戶籍地址</label>
+        <input type="text" name="register_address" value="{{ client.register_address }}" class="form-control" required>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">下次跟進日期</label>
+        <input type="date" name="next_follow" class="form-control">
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">備註</label>
+        <textarea name="notes" class="form-control">{{ client.notes }}</textarea>
+    </div>
+
+    <button class="btn btn-primary">儲存變更</button>
+</form>
+
+{% endblock %}

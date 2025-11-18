@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 class="mb-4">新增員工</h2>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+<form method="POST" class="bg-white p-4 rounded shadow-sm">
+
+    <div class="mb-3">
+        <label class="form-label">帳號</label>
+        <input type="text" name="username" class="form-control" required>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">密碼</label>
+        <input type="password" name="password" class="form-control" required>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">員工編號</label>
+        <input type="text" name="employee_id" class="form-control" required>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">角色</label>
+        <select name="role" class="form-select">
+            <option value="user">一般員工</option>
+            <option value="admin">管理員</option>
+        </select>
+    </div>
+
+    <button class="btn btn-primary">新增</button>
+</form>
+
+{% endblock %}
