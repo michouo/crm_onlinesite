@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
+import os
 import csv
 from openpyxl import Workbook
 from sqlalchemy import text
@@ -11,15 +12,25 @@ app = Flask(__name__)
 app.secret_key = "super_secret_key"
 
 # ---------------------------------------------------------
-# PostgreSQL 設定
+# Railway PostgreSQL 設定
 # ---------------------------------------------------------
-app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:940816@localhost:5432/crm_db"
+raw_url = os.getenv("DATABASE_URL")
+
+if raw_url:
+    # Railway 給的是 postgres:// → SQLAlchemy 要 postgresql+psycopg2://
+    if raw_url.startswith("postgres://"):
+        raw_url = raw_url.replace("postgres://", "postgresql+psycopg2://", 1)
+    app.config["SQLALCHEMY_DATABASE_URI"] = raw_url
+else:
+    # 本機開發時可用以下方式（若未安裝本機 PostgreSQL 可自行改成 SQLite）
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///local.db"
+
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
 # ---------------------------------------------------------
-# 使用者資料表（含員工編號 + 權限）
+# 使用者資料表
 # ---------------------------------------------------------
 class User(db.Model):
     __tablename__ = "users"
@@ -27,8 +38,8 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True)
     password_hash = db.Column(db.String(200))
-    employee_id = db.Column(db.String(50))               # 員工編號
-    role = db.Column(db.String(20), default="user")      # user / admin
+    employee_id = db.Column(db.String(50))
+    role = db.Column(db.String(20), default="user")  # user / admin
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -37,7 +48,7 @@ class User(db.Model):
         return check_password_hash(self.password_hash, password)
 
 # ---------------------------------------------------------
-# 客戶資料表（含 user_id）
+# 客戶資料表
 # ---------------------------------------------------------
 class Client(db.Model):
     __tablename__ = "customers"
@@ -49,8 +60,11 @@ class Client(db.Model):
     first_contact = db.Column(db.DateTime)
     next_follow = db.Column(db.DateTime)
     notes = db.Column(db.Text)
-    user_id = db.Column(db.Integer)   # 建立這筆資料的員工 ID
+    user_id = db.Column(db.Integer)
 
+# ---------------------------------------------------------
+# 建立資料表 (Railway 必須在 app context 下進行)
+# ---------------------------------------------------------
 with app.app_context():
     db.create_all()
     try:
@@ -101,13 +115,11 @@ def logout():
     return redirect("/login")
 
 # ---------------------------------------------------------
-# 首頁 → 檢查登入
+# 首頁
 # ---------------------------------------------------------
 @app.route("/")
 def home():
-    if "user_id" not in session:
-        return redirect("/login")
-    return redirect("/list")
+    return redirect("/list") if "user_id" in session else redirect("/login")
 
 # ---------------------------------------------------------
 # 新增客戶
@@ -124,10 +136,7 @@ def add_client():
         now = datetime.now()
 
         chosen_next = request.form["next_follow"].strip()
-        if chosen_next == "":
-            next_time = now + timedelta(days=14)
-        else:
-            next_time = datetime.strptime(chosen_next, "%Y/%m/%d")
+        next_time = now + timedelta(days=14) if chosen_next == "" else datetime.strptime(chosen_next, "%Y/%m/%d")
 
         if house_address.strip() == register_address.strip():
             register_address = "同左"
@@ -139,7 +148,7 @@ def add_client():
             first_contact=now,
             next_follow=next_time,
             notes=notes,
-            user_id=session["user_id"]    # ⭐ 記錄是誰新增的
+            user_id=session["user_id"]
         )
 
         db.session.add(c)
@@ -149,14 +158,13 @@ def add_client():
     return render_template("add.html")
 
 # ---------------------------------------------------------
-# 編輯客戶（需權限）
+# 編輯客戶
 # ---------------------------------------------------------
 @app.route("/edit/<int:id>", methods=["GET", "POST"])
 @login_required
 def edit_client(id):
     client = Client.query.get(id)
 
-    # ⭐ 員工不能編輯別人的客戶
     if session["role"] != "admin" and client.user_id != session["user_id"]:
         return "⛔ 你沒有權限編輯這筆資料"
 
@@ -167,7 +175,7 @@ def edit_client(id):
         client.notes = request.form["notes"]
 
         chosen_next = request.form["next_follow"].strip()
-        if chosen_next != "":
+        if chosen_next:
             client.next_follow = datetime.strptime(chosen_next, "%Y/%m/%d")
 
         if client.house_address.strip() == client.register_address.strip():
@@ -179,14 +187,13 @@ def edit_client(id):
     return render_template("edit.html", client=client)
 
 # ---------------------------------------------------------
-# 刪除客戶（需權限）
+# 刪除客戶
 # ---------------------------------------------------------
 @app.route("/delete/<int:id>")
 @login_required
 def delete_client(id):
     c = Client.query.get(id)
 
-    # ⭐ 員工不能刪別人的資料
     if session["role"] != "admin" and c.user_id != session["user_id"]:
         return "⛔ 你沒有權限刪除這筆資料"
 
@@ -195,7 +202,7 @@ def delete_client(id):
     return redirect("/list")
 
 # ---------------------------------------------------------
-# 客戶列表（搜尋 + 僅顯示自己的資料）
+# 客戶列表
 # ---------------------------------------------------------
 @app.route("/list")
 @login_required
@@ -207,7 +214,6 @@ def list_clients():
     role = session.get("role")
     user_id = session.get("user_id")
 
-    # ⭐ 管理員查全部；員工只查自己的
     if role == "admin":
         query = Client.query
     else:
@@ -228,10 +234,7 @@ def list_clients():
         clients = [c for c in clients if c.next_follow.strftime("%Y-%m-%d") == today_str]
 
     today_count = sum(
-        1 for c in Client.query.filter_by(user_id=user_id).all()
-        if c.next_follow.strftime("%Y-%m-%d") == today_str
-    ) if role != "admin" else sum(
-        1 for c in Client.query.all()
+        1 for c in (Client.query.all() if role == "admin" else Client.query.filter_by(user_id=user_id).all())
         if c.next_follow.strftime("%Y-%m-%d") == today_str
     )
 
@@ -310,7 +313,7 @@ def create_admin():
 
     admin = User(
         username="admin",
-        employee_id="A000",   # 預設編號
+        employee_id="A000",
         role="admin"
     )
     admin.set_password("123456")
@@ -319,6 +322,9 @@ def create_admin():
     db.session.commit()
     return "管理員帳號已建立： admin / 123456"
 
+# ---------------------------------------------------------
+# 員工管理
+# ---------------------------------------------------------
 @app.route("/users")
 @login_required
 def user_list():
@@ -340,7 +346,6 @@ def add_user():
         employee_id = request.form["employee_id"]
         role = request.form["role"]
 
-        # 帳號重複檢查
         if User.query.filter_by(username=username).first():
             return render_template("user_add.html", error="此帳號已存在")
 
@@ -371,7 +376,6 @@ def edit_user(id):
         user.employee_id = request.form["employee_id"]
         user.role = request.form["role"]
 
-        # 若密碼欄位非空 → 更新
         new_pass = request.form["password"].strip()
         if new_pass:
             user.set_password(new_pass)
@@ -387,7 +391,6 @@ def delete_user(id):
     if session["role"] != "admin":
         return "⛔ 只有管理員可以刪除員工"
 
-    # 不能刪除自己 (避免把管理員帳號刪掉)
     if id == session["user_id"]:
         return "⛔ 無法刪除自己"
 
